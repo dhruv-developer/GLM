@@ -1,0 +1,267 @@
+✅ Server is accessible
+🚀 Starting ZIEL-MAS API Tests
+Target URL: http://localhost:8000
+Timestamp: 2026-04-05T00:58:34.825485
+
+============================================================
+Testing: Health Check
+============================================================
+
+Health Check Response:
+Status Code: 200
+Response Body:
+{
+  "status": "healthy",
+  "timestamp": "2026-04-04T19:28:34.827947",
+  "services": {
+    "redis": "connected",
+    "database": "connected"
+  }
+}
+
+============================================================
+Testing: API Documentation
+============================================================
+Docs Response Status: 200
+✅ API Documentation is accessible
+
+============================================================
+Testing: Create Task
+============================================================
+
+Create Task Response:
+Status Code: 200
+Response Body:
+{
+  "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+  "execution_link": "/execute/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGVjdXRpb25faWQiOiI0NGEyYmY0ZS1hZDk3LTQ5YTMtOWNhOS0wNmY3MWUyNjVjOTYiLCJ1c2VyX2lkIjoidGVzdF91c2VyXzEyMyIsInR5cGUiOiJleGVjdXRpb24iLCJpYXQiOjE3NzUzMzA5MTYsImV4cCI6MTc3NTQxNzMxNiwianRpIjoiMjI2ZWVhNWFkYjEwOWJjZmYwMWVjMGUxNDE4OTgyOWYifQ.fP8fcEOzivuR7golrtr2FxefjG2i9AeUVo9gUzJuN6k",
+  "estimated_duration": 792,
+  "task_count": 2
+}
+
+============================================================
+Testing: Execute Task
+============================================================
+
+Execute Task Response:
+Status Code: 200
+Response Body:
+{
+  "message": "Task execution started",
+  "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+  "status": "started",
+  "monitor_link": "/api/v1/status/44a2bf4e-ad97-49a3-9ca9-06f71e265c96"
+}
+
+============================================================
+Testing: Task Status
+============================================================
+
+Task Status Response:
+Status Code: 200
+Response Body:
+{
+  "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+  "status": "failed",
+  "progress": 0.0,
+  "completed_tasks": 0,
+  "total_tasks": 2,
+  "current_task": null,
+  "result": null,
+  "error": null,
+  "logs": [
+    {
+      "_id": "69d166663876a1458df8a1e8",
+      "log_id": "8ba15947-3c2d-4b9c-8635-be90c653b02c",
+      "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+      "task_id": null,
+      "level": "ERROR",
+      "message": "Execution failed: 'str' object has no attribute 'value'",
+      "timestamp": "2026-04-04T19:28:38.895000",
+      "metadata": {}
+    },
+    {
+      "_id": "69d166663876a1458df8a1e7",
+      "log_id": "5c45b544-7fd0-4620-9ca7-b185d53f6a67",
+      "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+      "task_id": null,
+      "level": "INFO",
+      "message": "Execution started",
+      "timestamp": "2026-04-04T19:28:38.892000",
+      "metadata": {}
+    }
+  ]
+}
+
+============================================================
+Testing: Get Task Logs
+============================================================
+
+Get Task Logs Response:
+Status Code: 200
+Response Body:
+{
+  "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+  "logs": [
+    {
+      "_id": "69d166663876a1458df8a1e8",
+      "log_id": "8ba15947-3c2d-4b9c-8635-be90c653b02c",
+      "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+      "task_id": null,
+      "level": "ERROR",
+      "message": "Execution failed: 'str' object has no attribute 'value'",
+      "timestamp": "2026-04-04T19:28:38.895000",
+      "metadata": {}
+    },
+    {
+      "_id": "69d166663876a1458df8a1e7",
+      "log_id": "5c45b544-7fd0-4620-9ca7-b185d53f6a67",
+      "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+      "task_id": null,
+      "level": "INFO",
+      "message": "Execution started",
+      "timestamp": "2026-04-04T19:28:38.892000",
+      "metadata": {}
+    }
+  ],
+  "count": 2
+}
+
+============================================================
+Testing: Cancel Task
+============================================================
+
+Cancel Task Response:
+Status Code: 200
+Response Body:
+{
+  "message": "Task cancelled successfully",
+  "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96"
+}
+
+============================================================
+Testing: Get User Tasks
+============================================================
+
+Get User Tasks Response:
+Status Code: 200
+Response Body:
+{
+  "user_id": "test_user_123",
+  "tasks": [
+    {
+      "_id": "69d166643876a1458df8a1e6",
+      "execution_id": "44a2bf4e-ad97-49a3-9ca9-06f71e265c96",
+      "user_id": "test_user_123",
+      "intent": "Create a simple web scraper to extract product prices from an e-commerce website",
+      "task_graph": {
+        "graph_id": "ce51c1ec-75ce-4609-b90b-4ea5760000c8",
+        "nodes": {
+          "7509e6c4-e0fe-44d8-aca2-9c8b26f140fc": {
+            "task_id": "7509e6c4-e0fe-44d8-aca2-9c8b26f140fc",
+            "agent": "controller",
+            "action": "prepare_scheduled_task",
+            "parameters": {
+              "intent": "Create a simple web scraper to extract product prices from an e-commerce website"
+            },
+            "dependencies": [],
+            "status": "pending",
+            "retry_count": 0,
+            "max_retries": 3,
+            "timeout": 300,
+            "output": null,
+            "error": null,
+            "started_at": null,
+            "completed_at": null
+          },
+          "d31b1de7-ac0c-40db-a74f-a7ec46dec4e3": {
+            "task_id": "d31b1de7-ac0c-40db-a74f-a7ec46dec4e3",
+            "agent": "scheduler",
+            "action": "schedule_task",
+            "parameters": {
+              "time_info": {
+                "scheduled": true
+              },
+              "task_data": "Create a simple web scraper to extract product prices from an e-commerce website"
+            },
+            "dependencies": [
+              "7509e6c4-e0fe-44d8-aca2-9c8b26f140fc"
+            ],
+            "status": "pending",
+            "retry_count": 0,
+            "max_retries": 3,
+            "timeout": 300,
+            "output": null,
+            "error": null,
+            "started_at": null,
+            "completed_at": null
+          }
+        },
+        "edges": [],
+        "conditional_branches": [],
+        "parallel_execution": true
+      },
+      "status": "cancelled",
+      "priority": "medium",
+      "created_at": "2026-04-04T19:28:36.860000",
+      "started_at": null,
+      "completed_at": "2026-04-04T19:28:43.929000",
+      "execution_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGVjdXRpb25faWQiOiI0NGEyYmY0ZS1hZDk3LTQ5YTMtOWNhOS0wNmY3MWUyNjVjOTYiLCJ1c2VyX2lkIjoidGVzdF91c2VyXzEyMyIsInR5cGUiOiJleGVjdXRpb24iLCJpYXQiOjE3NzUzMzA5MTYsImV4cCI6MTc3NTQxNzMxNiwianRpIjoiMjI2ZWVhNWFkYjEwOWJjZmYwMWVjMGUxNDE4OTgyOWYifQ.fP8fcEOzivuR7golrtr2FxefjG2i9AeUVo9gUzJuN6k",
+      "result": null,
+      "error_summary": null,
+      "execution_logs": [],
+      "retry_count": 0,
+      "max_retries": 3,
+      "updated_at": "2026-04-04T19:28:38.895000"
+    }
+  ],
+  "count": 1
+}
+
+============================================================
+Testing: Get Statistics
+============================================================
+
+Get Statistics Response:
+Status Code: 200
+Response Body:
+{
+  "database": {
+    "total_tasks": 3,
+    "total_logs": 6,
+    "total_agents": 0,
+    "total_users": 0,
+    "task_status_distribution": {
+      "failed": 2,
+      "cancelled": 1
+    }
+  },
+  "cache": {
+    "connected_clients": 2,
+    "used_memory_human": "1006.23K",
+    "uptime_in_seconds": 4222,
+    "total_commands_processed": 260
+  },
+  "timestamp": "2026-04-04T19:28:46.052272"
+}
+
+============================================================
+TEST RESULTS SUMMARY
+============================================================
+Health              : ✅ PASS
+Docs                : ✅ PASS
+Create Task         : ✅ PASS
+Execute Task        : ✅ PASS
+Task Status         : ✅ PASS
+Task Logs           : ✅ PASS
+Cancel Task         : ✅ PASS
+User Tasks          : ✅ PASS
+Statistics          : ✅ PASS
+
+Total Tests: 9
+Passed: 9
+Failed: 0
+Success Rate: 100.0%
+
+🎉 All tests passed!
+((venv312) ) dhruvdawar11@Dhruvs-MacBook-Air-3 t1 % 

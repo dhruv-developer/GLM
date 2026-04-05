@@ -79,7 +79,7 @@ class CommunicationAgent(BaseAgent):
             logger.info(f"Email sent successfully to {to}")
 
             return self._create_response(
-                status="completed",
+                status="success",
                 output={
                     "recipients": to,
                     "subject": subject,
@@ -118,7 +118,7 @@ class CommunicationAgent(BaseAgent):
         # )
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "recipient": to,
                 "message": message,
@@ -142,7 +142,7 @@ class CommunicationAgent(BaseAgent):
 
         # Mock implementation - would use Twilio
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "recipient": to,
                 "message": message,

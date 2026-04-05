@@ -1,0 +1,26 @@
+# Testing Dependencies for ZIEL-MAS Backend
+
+# Core testing framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# HTTP client for API testing
+httpx==0.25.2
+
+# Mocking and testing utilities
+mongomock==4.1.2
+
+# Code quality and linting
+pytest-xdist[psutil]==3.5.0
+pytest-timeout==2.2.0
+pytest-benchmark==4.0.0
+
+# Coverage reporting
+coverage==7.3.2
+
+# Optional: For real database testing (tests use mocks by default)
+pymongo==4.6.1
+motor==3.3.2
+redis==5.0.1
+hiredis==2.2.3

@@ -116,7 +116,12 @@ class DatabaseService:
     async def get_task_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Get task execution by execution token"""
         try:
-            return await self.db.task_executions.find_one({"execution_token": token})
+            execution = await self.db.task_executions.find_one({"execution_token": token})
+            if execution:
+                # Convert ObjectId to string for JSON serialization
+                if "_id" in execution:
+                    execution["_id"] = str(execution["_id"])
+            return execution
         except Exception as e:
             logger.error(f"Failed to get task by token: {e}")
             return None
@@ -135,7 +140,14 @@ class DatabaseService:
                 query["status"] = status
 
             cursor = self.db.task_executions.find(query).sort("created_at", -1).skip(skip).limit(limit)
-            return await cursor.to_list(length=limit)
+            tasks = await cursor.to_list(length=limit)
+            
+            # Convert ObjectId to string for JSON serialization
+            for task in tasks:
+                if "_id" in task:
+                    task["_id"] = str(task["_id"])
+            
+            return tasks
         except Exception as e:
             logger.error(f"Failed to list user tasks: {e}")
             return []
@@ -176,7 +188,14 @@ class DatabaseService:
                 query["level"] = level
 
             cursor = self.db.execution_logs.find(query).sort("timestamp", -1).limit(limit)
-            return await cursor.to_list(length=limit)
+            logs = await cursor.to_list(length=limit)
+            
+            # Convert ObjectId to string for JSON serialization
+            for log in logs:
+                if "_id" in log:
+                    log["_id"] = str(log["_id"])
+            
+            return logs
         except Exception as e:
             logger.error(f"Failed to get execution logs: {e}")
             return []
@@ -213,7 +232,12 @@ class DatabaseService:
     async def get_agent_state(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Get agent state"""
         try:
-            return await self.db.agent_states.find_one({"agent_id": agent_id})
+            agent = await self.db.agent_states.find_one({"agent_id": agent_id})
+            if agent:
+                # Convert ObjectId to string for JSON serialization
+                if "_id" in agent:
+                    agent["_id"] = str(agent["_id"])
+            return agent
         except Exception as e:
             logger.error(f"Failed to get agent state: {e}")
             return None
@@ -226,7 +250,14 @@ class DatabaseService:
                 query["status"] = status
 
             cursor = self.db.agent_states.find(query)
-            return await cursor.to_list(length=None)
+            agents = await cursor.to_list(length=None)
+            
+            # Convert ObjectId to string for JSON serialization
+            for agent in agents:
+                if "_id" in agent:
+                    agent["_id"] = str(agent["_id"])
+            
+            return agents
         except Exception as e:
             logger.error(f"Failed to list agents: {e}")
             return []
@@ -260,7 +291,14 @@ class DatabaseService:
                 query["event_type"] = event_type
 
             cursor = self.db.audit_logs.find(query).sort("timestamp", -1).limit(limit)
-            return await cursor.to_list(length=limit)
+            logs = await cursor.to_list(length=limit)
+            
+            # Convert ObjectId to string for JSON serialization
+            for log in logs:
+                if "_id" in log:
+                    log["_id"] = str(log["_id"])
+            
+            return logs
         except Exception as e:
             logger.error(f"Failed to get audit logs: {e}")
             return []
@@ -279,7 +317,12 @@ class DatabaseService:
     async def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID"""
         try:
-            return await self.db.users.find_one({"user_id": user_id})
+            user = await self.db.users.find_one({"user_id": user_id})
+            if user:
+                # Convert ObjectId to string for JSON serialization
+                if "_id" in user:
+                    user["_id"] = str(user["_id"])
+            return user
         except Exception as e:
             logger.error(f"Failed to get user: {e}")
             return None
@@ -287,7 +330,12 @@ class DatabaseService:
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Get user by email"""
         try:
-            return await self.db.users.find_one({"email": email})
+            user = await self.db.users.find_one({"email": email})
+            if user:
+                # Convert ObjectId to string for JSON serialization
+                if "_id" in user:
+                    user["_id"] = str(user["_id"])
+            return user
         except Exception as e:
             logger.error(f"Failed to get user by email: {e}")
             return None

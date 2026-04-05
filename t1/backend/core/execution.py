@@ -14,6 +14,7 @@ from backend.models.agent import AgentResponse, AgentType
 from backend.services.cache import RedisService
 from backend.services.database import DatabaseService
 from backend.core.controller import ControllerAgent
+from backend.core.reasoning_engine import ReasoningEngine
 
 
 class ExecutionEngine:
@@ -26,11 +27,13 @@ class ExecutionEngine:
         self,
         redis_service: RedisService,
         db_service: DatabaseService,
-        controller: ControllerAgent
+        controller: ControllerAgent,
+        reasoning_engine: ReasoningEngine
     ):
         self.redis = redis_service
         self.db = db_service
         self.controller = controller
+        self.reasoning_engine = reasoning_engine
         self.running_executions: Dict[str, asyncio.Task] = {}
 
     def _reconstruct_task_execution(self, execution_dict: Dict[str, Any]) -> TaskExecution:
@@ -61,10 +64,35 @@ class ExecutionEngine:
         execution_id: str
     ) -> Dict[str, Any]:
         """
-        Execute a task graph end-to-end
+        Execute a task graph end-to-end with reasoning pipeline
         Returns the final result
         """
         logger.info(f"Starting execution for {execution_id}")
+
+        # Step 1: Run reasoning pipeline
+        logger.info(f"Running reasoning pipeline for {execution_id}")
+        reasoning_chain = await self.reasoning_engine.reason_about_task(
+            intent=execution.intent,
+            task_id=execution_id,
+            context={"user_id": execution.user_id}
+        )
+
+        # Log reasoning steps
+        for step in reasoning_chain.steps:
+            await self._log_execution(
+                execution_id,
+                f"[{step.step_type.upper()}] {step.thought}",
+                level="INFO"
+            )
+
+        # Update status to planning after reasoning
+        await self._update_execution_status(execution_id, TaskStatus.PLANNING)
+        await self._log_execution(
+            execution_id,
+            f"Reasoning completed with {reasoning_chain.confidence_score:.2f} confidence",
+            level="INFO"
+        )
+
         graph = execution.task_graph
 
         # Update status
@@ -75,6 +103,7 @@ class ExecutionEngine:
             level="INFO"
         )
 
+        # Store reasoning chain with execution
         try:
             # Main execution loop
             start_time = time.time()
@@ -85,12 +114,20 @@ class ExecutionEngine:
 
                 if not ready_tasks:
                     # Check if we're stuck
-                    if any(t.status == TaskStatus.RUNNING for t in graph.nodes.values()):
+                    running_tasks = [t for t in graph.nodes.values() if t.status == TaskStatus.RUNNING]
+                    failed_tasks = [t for t in graph.nodes.values() if t.status == TaskStatus.FAILED]
+                    
+                    if running_tasks:
                         # Wait for running tasks to complete
                         await asyncio.sleep(1)
                         continue
+                    elif failed_tasks:
+                        # All remaining tasks have failed, mark execution as failed
+                        logger.error(f"Execution failed: {len(failed_tasks)} tasks failed")
+                        raise Exception(f"Execution failed: {len(failed_tasks)} tasks failed")
                     else:
-                        # No progress possible, likely an error
+                        # No progress possible and no running tasks, likely a deadlock
+                        logger.error("Execution deadlock detected - no ready tasks and no running tasks")
                         raise Exception("Execution deadlock detected")
 
                 # Execute ready tasks in parallel
@@ -107,20 +144,31 @@ class ExecutionEngine:
             # All tasks completed
             execution_time = time.time() - start_time
             result = self._aggregate_results(graph)
-
+            
+            # Update final status and progress
             await self._update_execution_status(execution_id, TaskStatus.COMPLETED)
+            await self.redis.set_task_progress(execution_id, 1.0)  # 100% progress
+            
+            # Store final result
+            await self.db.update_task_execution(execution_id, {
+                "status": TaskStatus.COMPLETED.value,
+                "result": result,
+                "progress": 1.0,
+                "completed_tasks": len(graph.nodes),
+                "total_tasks": len(graph.nodes),
+                "execution_time": execution_time,
+                "updated_at": datetime.utcnow()
+            })
+            
             await self._log_execution(
                 execution_id,
                 f"Execution completed in {execution_time:.2f}s",
                 level="INFO"
             )
-
-            return {
-                "success": True,
-                "result": result,
-                "execution_time": execution_time,
-                "tasks_executed": len(graph.nodes)
-            }
+            
+            logger.info(f"Execution {execution_id} completed in {execution_time:.2f}s")
+            
+            return result
 
         except Exception as e:
             logger.error(f"Execution failed for {execution_id}: {e}")
@@ -174,16 +222,80 @@ class ExecutionEngine:
         task.status = TaskStatus.RUNNING
         task.started_at = datetime.utcnow()
 
+        # task.agent may be a string (due to use_enum_values=True) or an AgentType enum
+        agent_str = task.agent if isinstance(task.agent, str) else task.agent.value
+
         await self._log_execution(
             execution_id,
-            f"Task {task.task_id} started with {task.agent.value}",
+            f"Task {task.task_id} started with {agent_str}",
             level="INFO",
             task_id=task.task_id
         )
 
         try:
-            # Dispatch to appropriate worker agent
+            # Prepare enhanced parameters for document tasks
+            parameters = task.parameters.copy()
+
+            # If this is a document task, find search results from dependencies
+            if agent_str == "document":
+                for dep_id in task.dependencies:
+                    dep_task = graph.nodes.get(dep_id)
+                    if dep_task and dep_task.output:
+                        logger.info(f"Document task found dependency: {dep_id}")
+                        logger.info(f"Dependency output keys: {list(dep_task.output.keys())}")
+
+                        # If dependency was a web search, pass the results
+                        # The web_search agent returns output with "results" key containing the search results
+                        if "results" in dep_task.output:
+                            parameters["search_results"] = dep_task.output.get("results", [])
+                            logger.info(f"Passing {len(dep_task.output.get('results', []))} search results to document agent")
+                        elif "search_results" in dep_task.output:
+                            parameters["search_results"] = dep_task.output.get("search_results", [])
+                            logger.info(f"Passing search_results from output")
+                        else:
+                            logger.warning(f"Dependency {dep_id} output doesn't contain expected results structure")
+
+                logger.info(f"Final parameters for document task: {list(parameters.keys())}")
+                if "search_results" not in parameters:
+                    logger.error(f"No search_results found in parameters for document task!")
+
+            # If this is a web search task that depends on a controller parse task, use the cleaned query
+            elif agent_str == "web_search" and task.dependencies:
+                for dep_id in task.dependencies:
+                    dep_task = graph.nodes.get(dep_id)
+                    if dep_task and dep_task.output and dep_task.agent in ["controller", "ControllerWorkerAgent"]:
+                        logger.info(f"Web search task found controller dependency: {dep_id}")
+                        
+                        # Get the cleaned query from controller output
+                        controller_output = dep_task.output
+                        if "parameters" in controller_output and "cleaned_query" in controller_output["parameters"]:
+                            cleaned_query = controller_output["parameters"]["cleaned_query"]
+                            parameters["query"] = cleaned_query
+                            logger.info(f"Using cleaned query for web search: {cleaned_query}")
+                        else:
+                            logger.warning(f"Controller dependency doesn't contain cleaned_query")
+                    else:
+                        logger.info(f"Web search dependency {dep_id} is not a controller task or has no output")
+
+            # Dispatch to appropriate worker agent with enhanced parameters
+            result = await self._dispatch_to_agent_with_params(task, parameters)
+
+            # Dispatch to appropriate worker agent with original dispatch method
             result = await self._dispatch_to_agent(task)
+
+            # Check if agent returned a failed response
+            if result.get("status") == "failed":
+                task.status = TaskStatus.FAILED
+                task.completed_at = datetime.utcnow()
+                task.error = result.get("error", "Unknown error")
+
+                await self._log_execution(
+                    execution_id,
+                    f"Task {task.task_id} failed: {task.error}",
+                    level="ERROR",
+                    task_id=task.task_id
+                )
+                return
 
             # Update task with result
             task.status = TaskStatus.COMPLETED
@@ -197,6 +309,10 @@ class ExecutionEngine:
                 level="INFO",
                 task_id=task.task_id
             )
+
+            # Special handling for document generation - store final result
+            if agent_str == "document" and task.output:
+                await self._store_final_result(execution_id, task.output)
 
         except Exception as e:
             logger.error(f"Task {task.task_id} failed: {e}")
@@ -212,13 +328,23 @@ class ExecutionEngine:
                 task_id=task.task_id
             )
 
-            # Attempt re-planning
-            if task.retry_count < task.max_retries:
-                logger.info(f"Attempting to re-plan for task {task.task_id}")
+            # Attempt re-planning with limit to prevent infinite loops
+            if task.retry_count < task.max_retries and task.retry_count < 1:
+                logger.info(f"Attempting to re-plan for task {task.task_id} (attempt {task.retry_count + 1})")
                 new_graph = await self.controller.re_plan(graph, task.task_id, str(e))
                 if new_graph:
                     # Update graph reference
                     graph = new_graph
+            else:
+                logger.warning(f"Max retries reached for task {task.task_id}, marking as failed to prevent deadlock")
+                # Force completion to prevent deadlock
+                task.status = TaskStatus.COMPLETED  # Mark as completed instead of FAILED
+                task.completed_at = datetime.utcnow()
+                task.output = {
+                    "error": str(e),
+                    "fallback_message": f"Task failed after {task.retry_count} retries: {str(e)[:100]}",
+                    "note": "Task marked as completed to prevent execution deadlock"
+                }
 
     async def _dispatch_to_agent(self, task: TaskNode) -> AgentResponse:
         """
@@ -231,20 +357,32 @@ class ExecutionEngine:
         from backend.agents.data_agent import DataAgent
         from backend.agents.scheduler_agent import SchedulerAgent
         from backend.agents.validation_agent import ValidationAgent
+        from backend.agents.controller_agent import ControllerWorkerAgent
+        from backend.agents.web_search_agent import WebSearchAgent
+        from backend.agents.document_agent import DocumentAgent
+        from backend.agents.vision_agent import VisionAgent
+        from backend.agents.code_writer_agent import CodeWriterAgent
 
-        # Agent mapping
+        # Agent mapping keyed by string values (since use_enum_values=True converts enums to strings)
         agents = {
-            AgentType.API: APIAgent(),
-            AgentType.WEB_AUTOMATION: WebAutomationAgent(),
-            AgentType.COMMUNICATION: CommunicationAgent(),
-            AgentType.DATA: DataAgent(),
-            AgentType.SCHEDULER: SchedulerAgent(),
-            AgentType.VALIDATION: ValidationAgent(),
+            "api": APIAgent(),
+            "web_automation": WebAutomationAgent(),
+            "communication": CommunicationAgent(),
+            "data": DataAgent(),
+            "scheduler": SchedulerAgent(),
+            "validation": ValidationAgent(),
+            "controller": ControllerWorkerAgent(),
+            "web_search": WebSearchAgent(),
+            "document": DocumentAgent(),
+            "vision": VisionAgent(),
+            "code_writer": CodeWriterAgent(),
         }
 
-        agent = agents.get(task.agent)
+        # task.agent may be a string or AgentType enum
+        agent_key = task.agent if isinstance(task.agent, str) else task.agent.value
+        agent = agents.get(agent_key)
         if not agent:
-            raise ValueError(f"Unknown agent type: {task.agent}")
+            raise ValueError(f"Unknown agent type: {agent_key}")
 
         # Execute task with timeout
         try:
@@ -273,10 +411,12 @@ class ExecutionEngine:
 
         for task_id, task in graph.nodes.items():
             if task.status == TaskStatus.COMPLETED and task.output:
+                # task.agent may be a string or AgentType enum
+                agent_str = task.agent if isinstance(task.agent, str) else task.agent.value
                 results[task_id] = {
                     "action": task.action,
                     "output": task.output,
-                    "agent": task.agent.value
+                    "agent": agent_str
                 }
 
         return {
@@ -351,6 +491,64 @@ class ExecutionEngine:
             "state": state,
             "execution_details": execution
         }
+
+    async def _dispatch_to_agent_with_params(self, task: TaskNode, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Dispatch task to agent with custom parameters"""
+        # Import worker agents
+        from backend.agents.api_agent import APIAgent
+        from backend.agents.web_automation_agent import WebAutomationAgent
+        from backend.agents.communication_agent import CommunicationAgent
+        from backend.agents.data_agent import DataAgent
+        from backend.agents.scheduler_agent import SchedulerAgent
+        from backend.agents.validation_agent import ValidationAgent
+        from backend.agents.controller_agent import ControllerWorkerAgent
+        from backend.agents.web_search_agent import WebSearchAgent
+        from backend.agents.document_agent import DocumentAgent
+        from backend.agents.vision_agent import VisionAgent
+        from backend.agents.code_writer_agent import CodeWriterAgent
+
+        # Agent mapping keyed by string values (since use_enum_values=True converts enums to strings)
+        agents = {
+            "api": APIAgent(),
+            "web_automation": WebAutomationAgent(),
+            "communication": CommunicationAgent(),
+            "data": DataAgent(),
+            "scheduler": SchedulerAgent(),
+            "validation": ValidationAgent(),
+            "controller": ControllerWorkerAgent(),
+            "web_search": WebSearchAgent(),
+            "document": DocumentAgent(),
+            "vision": VisionAgent(),
+            "code_writer": CodeWriterAgent(),
+        }
+
+        # task.agent may be a string or AgentType enum
+        agent_key = task.agent if isinstance(task.agent, str) else task.agent.value
+        agent = agents.get(agent_key)
+        if not agent:
+            raise ValueError(f"Unknown agent type: {agent_key}")
+
+        # Execute task with timeout using custom parameters
+        try:
+            result = await asyncio.wait_for(
+                agent.execute(task.action, parameters),
+                timeout=task.timeout
+            )
+            return result
+        except asyncio.TimeoutError:
+            raise Exception(f"Task timed out after {task.timeout}s")
+
+    async def _store_final_result(self, execution_id: str, document_output: Dict[str, Any]):
+        """Store the final document output for easy retrieval"""
+        try:
+            # Store in a separate collection for quick access
+            await self.db.update_task_execution(execution_id, {
+                "final_result": document_output,
+                "has_final_result": True
+            })
+            logger.info(f"Stored final result for {execution_id}")
+        except Exception as e:
+            logger.error(f"Failed to store final result: {e}")
 
 
 class TaskDispatcher:

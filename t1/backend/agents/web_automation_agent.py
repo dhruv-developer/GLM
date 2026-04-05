@@ -62,7 +62,7 @@ class WebAutomationAgent(BaseAgent):
         #     await page.goto(url)
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "url": url,
                 "title": "Page Title",
@@ -85,7 +85,7 @@ class WebAutomationAgent(BaseAgent):
 
         # Mock implementation
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "fields_filled": len(values),
                 "selector": selector
@@ -107,7 +107,7 @@ class WebAutomationAgent(BaseAgent):
 
         # Mock implementation
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "clicked": selector,
                 "waited_for": wait_for
@@ -120,7 +120,7 @@ class WebAutomationAgent(BaseAgent):
 
         # Mock implementation
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "screenshot_path": "/tmp/screenshot.png",
                 "timestamp": "2024-01-01T00:00:00Z"
@@ -133,7 +133,7 @@ class WebAutomationAgent(BaseAgent):
 
         # Mock implementation
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "submitted": True,
                 "response": "Form submitted successfully"

@@ -82,7 +82,7 @@ class ValidationAgent(BaseAgent):
                     errors.append(f"Field {field} should be array")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "is_valid": is_valid,
                 "errors": errors
@@ -129,7 +129,7 @@ class ValidationAgent(BaseAgent):
                 checks_failed.append(f"Value < {criteria['min_value']}")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "verified": len(checks_failed) == 0,
                 "checks_passed": checks_passed,
@@ -167,7 +167,7 @@ class ValidationAgent(BaseAgent):
         all_passed = all(r["passed"] for r in results)
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "all_checks_passed": all_passed,
                 "results": results
@@ -180,7 +180,7 @@ class ValidationAgent(BaseAgent):
         logger.info("Verifying message delivery")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "delivered": True,
                 "delivery_time": "2024-01-01T00:00:00Z",
@@ -194,7 +194,7 @@ class ValidationAgent(BaseAgent):
         logger.info("Verifying form submission")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "submitted": True,
                 "submission_id": "sub_123456",
@@ -208,7 +208,7 @@ class ValidationAgent(BaseAgent):
         logger.info("Verifying booking")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "booked": True,
                 "booking_id": "book_123456",

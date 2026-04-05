@@ -28,6 +28,8 @@ class DataAgent(BaseAgent):
                 return await self._filter_data(parameters)
             elif action == "rank_data":
                 return await self._rank_data(parameters)
+            elif action == "aggregate_data":
+                return await self._aggregate_data(parameters)
             elif action == "transform_data":
                 return await self._transform_data(parameters)
             else:
@@ -62,7 +64,7 @@ class DataAgent(BaseAgent):
                     data = response.json()
 
                     return self._create_response(
-                        status="completed",
+                        status="success",
                         output={
                             "data": data,
                             "count": len(data) if isinstance(data, list) else 1
@@ -73,7 +75,7 @@ class DataAgent(BaseAgent):
             # Fetch from database
             # In production, this would query MongoDB/PostgreSQL/etc.
             return self._create_response(
-                status="completed",
+                status="success",
                 output={
                     "data": [{"id": 1, "name": "Item 1"}],
                     "count": 1
@@ -82,7 +84,7 @@ class DataAgent(BaseAgent):
 
         # Default mock response
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "data": [{"id": 1, "name": "Sample Data"}],
                 "count": 1
@@ -118,19 +120,16 @@ class DataAgent(BaseAgent):
                 filtered_data = [item for item in filtered_data if item.get(key) == value]
 
         return self._create_response(
-            status="completed",
-            output={
-                "data": filtered_data,
-                "original_count": len(data),
-                "filtered_count": len(filtered_data)
-            }
+            status="success",
+            output=filtered_data
         )
 
     async def _rank_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Rank items based on scoring function"""
+        """Rank items based on scoring function or specific field"""
         data = params.get("data", [])
         scoring_function = params.get("scoring_function", "default")
-        sort_order = params.get("sort_order", "desc")
+        sort_order = params.get("sort_order", params.get("order", "desc"))
+        rank_by = params.get("rank_by")
 
         if not data:
             return self._create_response(
@@ -142,30 +141,90 @@ class DataAgent(BaseAgent):
 
         # Apply scoring
         if scoring_function == "default":
-            # Simple scoring based on item properties
-            scored_data = []
-            for item in data:
-                score = sum(
-                    isinstance(v, (int, float))
-                    for v in item.values()
-                )
-                scored_data.append({**item, "_score": score})
+            # Check if ranking by specific field
+            if rank_by and rank_by in data[0]:
+                # Sort by the specified field
+                reverse = sort_order == "desc"
+                ranked_data = sorted(data, key=lambda x: x.get(rank_by, 0), reverse=reverse)
+            else:
+                # Simple scoring based on item properties
+                scored_data = []
+                for item in data:
+                    score = sum(
+                        isinstance(v, (int, float))
+                        for v in item.values()
+                    )
+                    scored_data.append({**item, "_score": score})
 
-            # Sort
-            reverse = sort_order == "desc"
-            ranked_data = sorted(scored_data, key=lambda x: x.get("_score", 0), reverse=reverse)
+                # Sort
+                reverse = sort_order == "desc"
+                ranked_data = sorted(scored_data, key=lambda x: x.get("_score", 0), reverse=reverse)
 
             return self._create_response(
-                status="completed",
-                output={
-                    "data": ranked_data,
-                    "count": len(ranked_data)
-                }
+                status="success",
+                output=ranked_data
             )
 
         return self._create_response(
-            status="completed",
-            output={"data": data, "count": len(data)}
+            status="success",
+            output=data
+        )
+
+    async def _aggregate_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Aggregate data by grouping and applying operations"""
+        data = params.get("data")
+        group_by = params.get("group_by")
+        operations = params.get("operations")
+
+        if not data:
+            return self._create_response(
+                status="failed",
+                error="Data is required for aggregation"
+            )
+
+        if not group_by:
+            return self._create_response(
+                status="failed",
+                error="Group by field is required"
+            )
+
+        logger.info(f"Aggregating data by {group_by}")
+
+        # Group data
+        grouped = {}
+        for item in data:
+            key = item.get(group_by)
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(item)
+
+        # Apply operations
+        result = []
+        for group_key, group_items in grouped.items():
+            group_result = {"group": group_key}
+
+            if operations:
+                for op_name, field in operations.items():
+                    if op_name == "sum":
+                        group_result[f"{field}_sum"] = sum(item.get(field, 0) for item in group_items)
+                    elif op_name == "avg":
+                        values = [item.get(field, 0) for item in group_items]
+                        group_result[f"{field}_avg"] = sum(values) / len(values) if values else 0
+                    elif op_name == "count":
+                        group_result["count"] = len(group_items)
+                    elif op_name == "min":
+                        group_result[f"{field}_min"] = min(item.get(field, 0) for item in group_items)
+                    elif op_name == "max":
+                        group_result[f"{field}_max"] = max(item.get(field, 0) for item in group_items)
+
+            result.append(group_result)
+
+        return self._create_response(
+            status="success",
+            output={
+                "data": result,
+                "grouped_by": group_by
+            }
         )
 
     async def _transform_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -196,7 +255,7 @@ class DataAgent(BaseAgent):
                 transformed_data = [{k: item.get(k) for k in keys} for item in data]
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "data": transformed_data,
                 "transformation": transformation

@@ -56,7 +56,7 @@ class APIAgent(BaseAgent):
             response = await client.get(url, headers=headers, params=query_params)
 
             return self._create_response(
-                status="completed",
+                status="success",
                 output={
                     "status_code": response.status_code,
                     "data": response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
@@ -79,7 +79,7 @@ class APIAgent(BaseAgent):
             response = await client.post(url, headers=headers, json=body)
 
             return self._create_response(
-                status="completed",
+                status="success",
                 output={
                     "status_code": response.status_code,
                     "data": response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
@@ -122,7 +122,7 @@ class APIAgent(BaseAgent):
                 )
 
             return self._create_response(
-                status="completed",
+                status="success",
                 output={
                     "status_code": response.status_code,
                     "data": response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
@@ -139,7 +139,7 @@ class APIAgent(BaseAgent):
         logger.info(f"Booking cab via {service}")
 
         return self._create_response(
-            status="completed",
+            status="success",
             output={
                 "booking_id": "cab_123456",
                 "service": service,

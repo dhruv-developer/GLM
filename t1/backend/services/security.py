@@ -29,12 +29,19 @@ class SecurityService:
         jwt_algorithm: str = "HS256",
         token_expiry_hours: int = 24
     ):
+        if not jwt_secret or len(jwt_secret) < 16:
+            raise ValueError("JWT secret must be at least 16 characters long")
+
         self.jwt_secret = jwt_secret
         self.jwt_algorithm = jwt_algorithm
         self.token_expiry_hours = token_expiry_hours
 
         # Initialize encryption
         if encryption_key:
+            # Validate encryption key length
+            if len(encryption_key) < 32:
+                raise ValueError("Encryption key must be at least 32 characters long")
+
             # Derive a proper key from the provided secret
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
@@ -195,14 +202,40 @@ class SecurityService:
         Validate user intent for security
         Checks for malicious patterns, injection attempts, etc.
         """
-        if not intent or len(intent) > 10000:
+        # Check for empty or whitespace-only intent
+        if not intent or not intent.strip():
+            return False, "Intent cannot be empty or whitespace only"
+
+        # Check for intent length
+        if len(intent) >= 10000:
             return False, "Intent must be between 1 and 10000 characters"
 
         # Check for potential injection patterns
         dangerous_patterns = [
+            # XSS patterns (case-insensitive checks will be done separately)
             "<script>", "javascript:", "eval(", "exec(",
-            "../../", "..\\", "DROP TABLE", "DELETE FROM",
-            "__import__", "subprocess", "os.system"
+            "onerror=", "onload=", "onclick=", "<img", "<iframe", "<object",
+            # SQL Injection patterns (more comprehensive)
+            "DROP TABLE", "DELETE FROM", "INSERT INTO", "UPDATE", "' OR '", "' OR '1'='1",
+            "'; DROP", "1' OR '1'='1", "UNION SELECT", "'; --", "';--", "--", "/*", "*/",
+            "admin'--", "admin' --", "'--", "' --", "'#", "' #", "or 1=1", "or 1=1--",
+            "exec(", "execute(", "sp_executesql", "xp_cmdshell",
+            # Command injection
+            "__import__", "subprocess", "os.system", "$(", "`", "exec(", ";", "|", "&",
+            # Path traversal (including URL-encoded)
+            "../../", "..\\", "/etc/passwd", "\\windows\\system32", "..%2f", "..%5c",
+            "%2e%2e", "%252e", "%2f", "%5c", "etc/passwd", "windows\\system32",
+            # LDAP injection (more comprehensive)
+            "*)(", "*)(uid=*", "*)(&", "(|(cn=*)", "*)(mail=*", "*)(&(objectclass=*",
+            "*))%00", "*)%", "*|%00", "*)%", "*)(*", "*)(cn=*))%",
+            # XML injection
+            "<!ENTITY", "SYSTEM", "DOCTYPE", "]]>",
+            # Header injection
+            "\r\n", "\n", "%0d", "%0a",
+            # Template injection
+            "{{", "}}", "{%", "%}",
+            # Null bytes
+            "%00", "\\x00", "\\u0000",
         ]
 
         intent_lower = intent.lower()
@@ -210,6 +243,17 @@ class SecurityService:
             if pattern.lower() in intent_lower:
                 logger.warning(f"Potentially malicious intent detected: {pattern}")
                 return False, f"Intent contains forbidden pattern: {pattern}"
+
+        # Additional checks for complex patterns
+        # Check for newlines in intent (header injection)
+        if '\n' in intent or '\r' in intent:
+            logger.warning("Potentially malicious intent detected: newline characters")
+            return False, "Intent contains forbidden newline characters"
+
+        # Check for template injection patterns
+        if "{{" in intent or "}}" in intent or "{%" in intent or "%}" in intent:
+            logger.warning("Potentially malicious intent detected: template injection")
+            return False, "Intent contains forbidden template injection patterns"
 
         return True, None
 
@@ -302,3 +346,32 @@ class SecurityService:
         except Exception as e:
             logger.error(f"API validation error: {e}")
             return False
+
+    # Password Management
+
+    def hash_password(self, password: str) -> str:
+        """Hash a password using secure hashing (bcrypt-like format)"""
+        # For better security, use bcrypt-like format: $2b$12$salt22characters31charactershash
+        import bcrypt
+
+        # Generate salt and hash
+        salt = bcrypt.gensalt().decode('utf-8')
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt.encode('utf-8')).decode('utf-8')
+
+        return hashed
+
+    def verify_password(self, password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash"""
+        import bcrypt
+
+        try:
+            return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except Exception:
+            return False
+
+    def generate_random_string(self, length: int = 16) -> str:
+        """Generate a random string for tokens, keys, etc."""
+        import secrets
+        import string
+        alphabet = string.ascii_letters + string.digits
+        return ''.join(secrets.choice(alphabet) for _ in range(length))

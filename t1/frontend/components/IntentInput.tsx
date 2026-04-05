@@ -1,90 +1,146 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Send, Loader2 } from "lucide-react";
-import { createTask } from "@/lib/api";
+import { useState } from "react"
+import { Send, Loader2, Sparkles } from "lucide-react"
+import { createTask } from "@/lib/api"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { motion } from "framer-motion"
 
 interface IntentInputProps {
-  onTaskCreated: (data: any) => void;
+  onTaskCreated: (data: any) => void
 }
 
+const exampleIntents = [
+  "Search for the latest AI trends in 2024 and create a summary",
+  "Find top 10 Python async best practices and compare them",
+  "Research Docker containerization and create a guide",
+  "Search for recent cybersecurity news and identify threats",
+  "Find technical documentation for FastAPI and summarize",
+  "Search for machine learning frameworks and compare features"
+]
+
 export default function IntentInput({ onTaskCreated }: IntentInputProps) {
-  const [intent, setIntent] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [intent, setIntent] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault()
+    setError("")
 
     if (!intent.trim()) {
-      setError("Please enter a task description");
-      return;
+      setError("Please enter a task description")
+      return
     }
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
 
     try {
       const response = await createTask({
         intent: intent.trim(),
         priority: "medium",
-      });
+      })
 
       onTaskCreated({
         executionId: response.execution_id,
         executionLink: response.execution_link,
         intent: intent.trim(),
-      });
+      })
 
-      setIntent("");
+      setIntent("")
     } catch (err: any) {
-      setError(err.message || "Failed to create task. Please try again.");
+      setError(err.message || "Failed to create task. Please try again.")
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="glass rounded-2xl p-1">
-        <div className="bg-black/30 rounded-xl overflow-hidden">
-          <textarea
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            placeholder="Describe what you need to do..."
-            className="w-full bg-transparent text-white placeholder-gray-500 p-6 resize-none focus:outline-none min-h-[150px]"
-            disabled={isSubmitting}
-          />
-          <div className="border-t border-white/10 px-6 py-4 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              Press Enter to submit
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Card className="border-2 border-primary/20 shadow-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || !intent.trim()}
-              className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Creating...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Create Task</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+            Create New Task
+          </CardTitle>
+          <CardDescription>
+            Describe what you need to accomplish in plain English. Our AI-powered multi-agent system with web search capabilities will handle the rest.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Textarea
+                value={intent}
+                onChange={(e) => setIntent(e.target.value)}
+                placeholder="e.g., Search for the latest AI trends and create a summary, Find top 10 Python tutorials and compare them, Research Docker best practices..."
+                className="min-h-[150px] resize-none border-2 focus:border-primary"
+                disabled={isSubmitting}
+              />
+            </div>
 
-      {error && (
-        <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 text-red-300">
-          {error}
-        </div>
-      )}
-    </form>
-  );
+            {/* Example Intents */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Try these examples:</p>
+              <div className="flex flex-wrap gap-2">
+                {exampleIntents.map((example) => (
+                  <Badge
+                    key={example}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-all"
+                    onClick={() => setIntent(example)}
+                  >
+                    {example}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Press Enter to submit
+              </div>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !intent.trim()}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Create Task
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+              >
+                {error}
+              </motion.div>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
 }

@@ -264,5 +264,64 @@ AGENT_CONFIGS = {
             )
         ],
         max_concurrent_tasks=5
+    ),
+
+    AgentType.VISION: AgentConfig(
+        agent_type=AgentType.VISION,
+        name="Vision Agent",
+        description="Analyzes images and videos using GLM Vision API",
+        capabilities=[
+            AgentCapability(
+                name="analyze_image",
+                description="General-purpose image understanding",
+                parameters={"image_path": "string", "image_base64": "string", "prompt": "string"},
+                required_permissions=["vision.analyze"]
+            ),
+            AgentCapability(
+                name="analyze_video",
+                description="Video understanding and analysis",
+                parameters={"video_path": "string", "video_base64": "string", "prompt": "string"},
+                required_permissions=["vision.analyze"]
+            ),
+            AgentCapability(
+                name="extract_text",
+                description="OCR - Extract text from images",
+                parameters={"image_path": "string", "image_base64": "string"},
+                required_permissions=["vision.ocr"]
+            ),
+            AgentCapability(
+                name="diagnose_error",
+                description="Analyze error screenshots and propose fixes",
+                parameters={"image_path": "string", "image_base64": "string", "context": "string"},
+                required_permissions=["vision.diagnose"]
+            ),
+            AgentCapability(
+                name="ui_to_code",
+                description="Convert UI screenshots to code",
+                parameters={"image_path": "string", "image_base64": "string", "framework": "string"},
+                required_permissions=["vision.ui_analysis"]
+            ),
+            AgentCapability(
+                name="understand_diagram",
+                description="Interpret technical diagrams",
+                parameters={"image_path": "string", "image_base64": "string", "diagram_type": "string"},
+                required_permissions=["vision.diagram"]
+            ),
+            AgentCapability(
+                name="analyze_chart",
+                description="Analyze data visualizations and charts",
+                parameters={"image_path": "string", "image_base64": "string"},
+                required_permissions=["vision.chart"]
+            ),
+            AgentCapability(
+                name="compare_ui",
+                description="Compare two UI screenshots",
+                parameters={"image1_path": "string", "image2_path": "string"},
+                required_permissions=["vision.compare"]
+            )
+        ],
+        max_concurrent_tasks=3,
+        timeout=600,
+        required_env_vars=["ZAI_API_KEY"]
     )
 }

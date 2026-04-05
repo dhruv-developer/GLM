@@ -1,14 +1,36 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { CheckCircle2, XCircle, Clock, Loader2, Copy, ExternalLink, RefreshCw } from "lucide-react";
-import { getTaskStatus, executeTask } from "@/lib/api";
-import { TaskStatus as TaskStatusType } from "@/types";
+import { useState, useEffect } from "react"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+  Zap,
+  AlertCircle,
+  Play,
+  Pause,
+  RotateCcw
+} from "lucide-react"
+import { getTaskStatus, executeTask } from "@/lib/api"
+import { TaskStatus as TaskStatusType } from "@/types"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { motion, AnimatePresence } from "framer-motion"
+import TaskResultDisplay from "@/components/TaskResultDisplay"
+import TaskSummaryCard from "@/components/TaskSummaryCard"
+import WebSearchResultsDisplay from "@/components/WebSearchResultsDisplay"
+import ReasoningChainDisplay from "@/components/ReasoningChainDisplay"
 
 interface ExecutionMonitorProps {
-  executionId: string;
-  executionLink: string;
-  intent: string;
+  executionId: string
+  executionLink: string
+  intent: string
 }
 
 export default function ExecutionMonitor({
@@ -16,15 +38,30 @@ export default function ExecutionMonitor({
   executionLink,
   intent,
 }: ExecutionMonitorProps) {
-  const [status, setStatus] = useState<TaskStatusType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [executing, setExecuting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<TaskStatusType | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [executing, setExecuting] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [autoExecuted, setAutoExecuted] = useState(false)
+  const [reasoningChain, setReasoningChain] = useState<any>(null)
 
   const fetchStatus = async () => {
     try {
       const data = await getTaskStatus(executionId);
       setStatus(data);
+
+      // Fetch reasoning chain if available
+      try {
+        const reasoningResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/reasoning/${executionId}`
+        );
+        if (reasoningResponse.ok) {
+          const reasoningData = await reasoningResponse.json();
+          setReasoningChain(reasoningData.reasoning_chain);
+        }
+      } catch (error) {
+        console.log("No reasoning chain available");
+      }
     } catch (error) {
       console.error("Failed to fetch status:", error);
     } finally {
@@ -59,22 +96,77 @@ export default function ExecutionMonitor({
     return () => clearInterval(interval);
   }, [executionId]);
 
+  // Auto-execute if task is in pending or ready state (only once)
+  useEffect(() => {
+    if (status && (status.status === "pending" || status.status === "ready") && !executing && !autoExecuted) {
+      setAutoExecuted(true);
+      handleExecute();
+    }
+  }, [status, autoExecuted]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        >
+          <Loader2 className="w-12 h-12 text-primary" />
+        </motion.div>
       </div>
     );
   }
 
   const statusConfig = {
-    pending: { color: "yellow", icon: Clock, label: "Pending" },
-    planning: { color: "blue", icon: Loader2, label: "Planning" },
-    ready: { color: "purple", icon: Clock, label: "Ready" },
-    running: { color: "purple", icon: Loader2, label: "Running" },
-    completed: { color: "green", icon: CheckCircle2, label: "Completed" },
-    failed: { color: "red", icon: XCircle, label: "Failed" },
-    cancelled: { color: "gray", icon: XCircle, label: "Cancelled" },
+    pending: {
+      color: "bg-yellow-500",
+      textColor: "text-yellow-500",
+      bg: "bg-yellow-500/10",
+      icon: Clock,
+      label: "Pending"
+    },
+    planning: {
+      color: "bg-blue-500",
+      textColor: "text-blue-500",
+      bg: "bg-blue-500/10",
+      icon: AlertCircle,
+      label: "Planning"
+    },
+    ready: {
+      color: "bg-purple-500",
+      textColor: "text-purple-500",
+      bg: "bg-purple-500/10",
+      icon: Play,
+      label: "Ready"
+    },
+    running: {
+      color: "bg-purple-500",
+      textColor: "text-purple-500",
+      bg: "bg-purple-500/10",
+      icon: Loader2,
+      label: "Running"
+    },
+    completed: {
+      color: "bg-green-500",
+      textColor: "text-green-500",
+      bg: "bg-green-500/10",
+      icon: CheckCircle2,
+      label: "Completed"
+    },
+    failed: {
+      color: "bg-red-500",
+      textColor: "text-red-500",
+      bg: "bg-red-500/10",
+      icon: XCircle,
+      label: "Failed"
+    },
+    cancelled: {
+      color: "bg-gray-500",
+      textColor: "text-gray-500",
+      bg: "bg-gray-500/10",
+      icon: XCircle,
+      label: "Cancelled"
+    },
   };
 
   const currentStatus = status?.status || "pending";
@@ -82,154 +174,215 @@ export default function ExecutionMonitor({
   const StatusIcon = config.icon;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
       {/* Task Overview */}
-      <div className="glass rounded-2xl p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-white font-semibold mb-2">Your Task</h3>
-            <p className="text-gray-400">{intent}</p>
+      <Card className="border-2 border-primary/20">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2 mb-2">
+                <Zap className="w-6 h-6 text-primary" />
+                Task Overview
+              </CardTitle>
+              <CardDescription className="text-base">{intent}</CardDescription>
+            </div>
+            <Badge className={`${config.bg} ${config.textColor} border-0`}>
+              <StatusIcon className={`w-4 h-4 mr-1 ${currentStatus === "running" ? "animate-spin" : ""}`} />
+              {config.label}
+            </Badge>
           </div>
-          <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg bg-${config.color}-500/20 border border-${config.color}-500/30`}>
-            <StatusIcon className={`w-5 h-5 text-${config.color}-400 ${currentStatus === "running" ? "animate-spin" : ""}`} />
-            <span className={`text-${config.color}-300 font-medium`}>{config.label}</span>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Progress</span>
+              <span className="font-semibold">{status ? `${Math.round(status.progress * 100)}%` : "0%"}</span>
+            </div>
+            <Progress value={(status?.progress || 0) * 100} className="h-3" />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{status?.completed_tasks || 0} tasks completed</span>
+              <span>{status?.total_tasks || 0} total tasks</span>
+            </div>
           </div>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-400 mb-2">
-            <span>Progress</span>
-            <span>{status ? `${Math.round(status.progress * 100)}%` : "0%"}</span>
+          {/* Execution Link */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Execution Link</label>
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center bg-muted rounded-lg px-4 py-2">
+                <code className="text-sm font-mono truncate">
+                  {`${window.location.origin}${executionLink}`}
+                </code>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={copyLink}
+                title="Copy link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                title="Open in new tab"
+              >
+                <a
+                  href={executionLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            </div>
+            <AnimatePresence>
+              {copied && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="text-sm text-green-500"
+                >
+                  Link copied to clipboard!
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
-              style={{ width: `${(status?.progress || 0) * 100}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Task Count */}
-        <div className="flex items-center justify-between text-sm text-gray-400">
-          <span>Tasks Completed</span>
-          <span>{status?.completed_tasks || 0} / {status?.total_tasks || 0}</span>
-        </div>
-      </div>
-
-      {/* Execution Link */}
-      <div className="glass rounded-2xl p-6">
-        <h3 className="text-white font-semibold mb-4">Execution Link</h3>
-        <div className="flex items-center space-x-2 mb-4">
-          <input
-            type="text"
-            value={`${window.location.origin}${executionLink}`}
-            readOnly
-            className="flex-1 bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white text-sm font-mono"
-          />
-          <button
-            onClick={copyLink}
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-            title="Copy link"
-          >
-            <Copy className="w-5 h-5 text-white" />
-          </button>
-          <a
-            href={executionLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg transition-colors"
-            title="Open in new tab"
-          >
-            <ExternalLink className="w-5 h-5 text-white" />
-          </a>
-        </div>
-
-        {currentStatus === "ready" && (
-          <button
-            onClick={handleExecute}
-            disabled={executing}
-            className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 text-white px-6 py-4 rounded-lg font-medium transition-all"
-          >
-            {executing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Executing...</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-5 h-5" />
-                <span>Execute Now</span>
-              </>
-            )}
-          </button>
-        )}
-      </div>
+          {/* Action Buttons */}
+          {currentStatus === "ready" && (
+            <Button
+              onClick={handleExecute}
+              disabled={executing}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              size="lg"
+            >
+              {executing ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Executing...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-5 w-5" />
+                  Execute Now
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Execution Logs */}
       {status && status.logs.length > 0 && (
-        <div className="glass rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-semibold">Execution Logs</h3>
-            <button
-              onClick={fetchStatus}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              title="Refresh logs"
-            >
-              <RefreshCw className="w-4 h-4 text-gray-400" />
-            </button>
-          </div>
-
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {status.logs.map((log) => (
-              <div
-                key={log.log_id}
-                className={`p-3 rounded-lg text-sm font-mono ${
-                  log.level === "ERROR"
-                    ? "bg-red-500/10 border border-red-500/20 text-red-300"
-                    : log.level === "WARNING"
-                    ? "bg-yellow-500/10 border border-yellow-500/20 text-yellow-300"
-                    : "bg-white/5 border border-white/10 text-gray-300"
-                }`}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5" />
+                Execution Logs
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchStatus}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-500">
-                    {new Date(log.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span className="text-xs uppercase">{log.level}</span>
-                </div>
-                <div>{log.message}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {status.logs.map((log) => (
+                <motion.div
+                  key={log.log_id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`p-4 rounded-lg ${
+                    log.level === "ERROR"
+                      ? "bg-destructive/10 border border-destructive/20"
+                      : log.level === "WARNING"
+                      ? "bg-yellow-500/10 border border-yellow-500/20"
+                      : "bg-muted/50 border border-border"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {log.level}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm">{log.message}</p>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reasoning Chain Display */}
+      {reasoningChain && <ReasoningChainDisplay chain={reasoningChain} />}
+
+      {/* Task Summary Card (shown when task is completed) */}
+      {status && <TaskSummaryCard status={status} />}
+
+      {/* Web Search Results (if available) */}
+      {status?.web_search_results && status.web_search_results.length > 0 && (
+        <WebSearchResultsDisplay searchResults={status.web_search_results} />
       )}
 
       {/* Result */}
       {status?.result && (
-        <div className="glass rounded-2xl p-6 border border-green-500/30">
-          <h3 className="text-green-300 font-semibold mb-4 flex items-center">
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            Execution Result
-          </h3>
-          <pre className="bg-black/30 rounded-lg p-4 text-sm text-gray-300 overflow-x-auto">
-            {JSON.stringify(status.result, null, 2)}
-          </pre>
-        </div>
+        <TaskResultDisplay 
+          result={status.result} 
+          executionId={executionId}
+          generatedCode={status.generated_code}
+          downloadFilename={status.download_filename}
+        />
       )}
 
       {/* Error */}
       {status?.error && (
-        <div className="glass rounded-2xl p-6 border border-red-500/30">
-          <h3 className="text-red-300 font-semibold mb-4 flex items-center">
-            <XCircle className="w-5 h-5 mr-2" />
-            Execution Error
-          </h3>
-          <p className="text-red-200">{status.error}</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="border-destructive/20 bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <XCircle className="w-6 h-6" />
+                Execution Error
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-destructive/90">{status.error}</p>
+              <div className="mt-4 flex gap-2">
+                <Button variant="outline" size="sm">
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Retry
+                </Button>
+                <Button variant="outline" size="sm">
+                  View Logs
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
-
-import { Zap } from "lucide-react";
