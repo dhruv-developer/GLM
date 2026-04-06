@@ -1,6 +1,6 @@
-# 🎨 ZIEL-MAS Frontend - Beautiful Multi-Page UI
+# 🎨 OneTapAI Frontend - Beautiful Multi-Page UI
 
-A stunning, modern multi-page frontend for the ZIEL-MAS system built with Next.js 14, shadcn/ui, and Framer Motion.
+A stunning, modern multi-page frontend for the OneTapAI system built with Next.js 14, shadcn/ui, and Framer Motion.
 
 ## ✨ Features
 

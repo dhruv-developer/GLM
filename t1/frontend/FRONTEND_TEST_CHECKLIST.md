@@ -1,4 +1,4 @@
-# Frontend Testing Checklist - ZIEL-MAS
+# Frontend Testing Checklist - OneTapAI
 
 ## 🎯 Overview
 This checklist helps verify all frontend functionality is working correctly with the backend API.

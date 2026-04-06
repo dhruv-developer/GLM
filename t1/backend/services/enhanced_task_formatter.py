@@ -117,28 +117,120 @@ class EnhancedTaskFormatter:
         query = output.get("query", "")
         source = output.get("source", "")
         execution_time = output.get("execution_time", 0)
+        deep_analysis = output.get("deep_analysis", False)
         
         if result_count > 0:
+            # Check if this is a job search
+            is_job_search = any(keyword in query.lower() for keyword in ['job', 'jobs', 'career', 'hiring', 'opening', 'position'])
+            
             lines.append(f"🔍 **Search Query:** {query}")
             lines.append(f"📊 **Results Found:** {result_count} sources")
             lines.append(f"⚡ **Search Time:** {execution_time:.2f} seconds")
             lines.append(f"🌐 **Source:** {source.replace('_', ' ').title()}")
+            
+            if deep_analysis and is_job_search:
+                lines.append(f"🔬 **Analysis:** Deep Job Scraping Applied")
             lines.append("")
             
-            lines.append("**🌟 Top Results:**")
-            for i, result in enumerate(results[:5], 1):
-                title = result.get("title", "No title")
-                url = result.get("url", "")
-                snippet = result.get("snippet", "")
-                
-                lines.append(f"{i}. **{title}**")
-                lines.append(f"   🔗 {url}")
-                if snippet:
-                    lines.append(f"   📝 {snippet}")
-                lines.append("")
+            if is_job_search and deep_analysis:
+                lines.extend(self._format_job_search_results_enhanced(results))
+            else:
+                lines.append("**🌟 Top Results:**")
+                for i, result in enumerate(results[:5], 1):
+                    title = result.get("title", "No title")
+                    url = result.get("url", "")
+                    snippet = result.get("snippet", "")
+                    
+                    lines.append(f"{i}. **{title}**")
+                    lines.append(f"   🔗 {url}")
+                    if snippet:
+                        lines.append(f"   📝 {snippet}")
+                    lines.append("")
         else:
             lines.append("🔍 **Search Query:** {query}")
             lines.append("❌ No results found. Try refining your search terms.")
+        
+        return lines
+    
+    def _format_job_search_results_enhanced(self, results: List[Dict[str, Any]]) -> List[str]:
+        """Format job search results with beautiful, detailed job information"""
+        lines = []
+        
+        lines.append("💼 **Job Openings Found:**")
+        lines.append("")
+        
+        # Filter out non-job results and sort by quality
+        job_results = []
+        for result in results:
+            title = result.get("title", "")
+            company = result.get("company", "")
+            if title and (len(title) > 5 or company):
+                job_results.append(result)
+        
+        # Show top 8 job results
+        for i, job in enumerate(job_results[:8], 1):
+            title = job.get("title", "No title")
+            company = job.get("company", "Unknown Company")
+            location = job.get("location", "")
+            salary = job.get("salary", "")
+            employment_type = job.get("employment_type", "")
+            experience_level = job.get("experience_level", "")
+            skills = job.get("skills_required", [])
+            description = job.get("description", "")
+            application_url = job.get("application_url", job.get("url", ""))
+            source_platform = job.get("source_platform", "")
+            posted_date = job.get("posted_date", "")
+            
+            lines.append(f"🎯 **Job #{i}: {title}**")
+            lines.append("   " + "─" * 50)
+            
+            # Company and location
+            if company and company != "":
+                lines.append(f"   🏢 **Company:** {company}")
+            if location and location != "":
+                lines.append(f"   📍 **Location:** {location}")
+            if employment_type and employment_type != "":
+                lines.append(f"   🕐 **Type:** {employment_type}")
+            if experience_level and experience_level != "":
+                lines.append(f"   💼 **Level:** {experience_level}")
+            if salary and salary != "":
+                lines.append(f"   💰 **Salary:** {salary}")
+            if posted_date and posted_date != "":
+                lines.append(f"   📅 **Posted:** {posted_date}")
+            if source_platform and source_platform != "":
+                lines.append(f"   🌐 **Platform:** {source_platform}")
+            if len(first_line) > 20:
+                lines.append(f"   📄 **Description:** {first_line}...")
+            
+            # Application link - PROMINENT DISPLAY
+            if application_url and application_url != "":
+                lines.append(f"   🔗 **APPLY HERE:** {application_url}")
+                lines.append(f"   🔗 **DIRECT LINK:** {application_url}")
+            
+            lines.append("")
+        
+        # Add summary statistics
+        total_jobs = len(job_results)
+        if total_jobs > 8:
+            lines.append(f"📊 **Summary:** Showing 8 of {total_jobs} job openings found")
+        
+        # Add unique companies found
+        companies = set()
+        locations = set()
+        for job in job_results:
+            if job.get("company") and job.get("company") != "":
+                companies.add(job.get("company"))
+            if job.get("location") and job.get("location") != "":
+                locations.add(job.get("location"))
+        
+        if companies:
+            lines.append(f"🏢 **Companies:** {len(companies)} unique companies")
+        if locations:
+            lines.append(f"📍 **Locations:** {', '.join(list(locations)[:5])}")
+        
+        lines.append("")
+        lines.append("💡 **Tip:** Click the application links to apply directly!")
+        lines.append("")
         
         return lines
 

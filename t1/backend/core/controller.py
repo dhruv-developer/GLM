@@ -160,7 +160,7 @@ Only return valid JSON, no explanations."""
         """Detect the type of task from intent"""
         # Priority order matters - check more specific types first
         task_keywords = {
-            "web_search": ["search", "find", "google", "look up", "research"],
+            "web_search": ["search", "find", "google", "look up", "research", "weather", "temperature", "forecast", "climate", "conditions", "states", "cities", "country", "job", "jobs", "career", "careers", "hiring", "opening", "openings", "vacancy", "vacancies", "recruitment", "apply", "position", "positions", "internship", "internships"],
             "code_generation": ["write", "generate", "create code", "develop", "implement", "scrape", "scraping"],
             "communication": ["send", "email", "message", "whatsapp", "sms", "notify"],
             "scheduling": ["schedule", "remind", "at", "tomorrow", "today", "oclock"],

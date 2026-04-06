@@ -45,7 +45,7 @@ export default function SettingsPage() {
 
     // API
     apiKey: "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    apiEndpoint: "https://api.ziel-mas.com/v1",
+    apiEndpoint: "https://api.onetapai.com/v1",
 
     // Appearance
     theme: "dark",
@@ -90,7 +90,7 @@ export default function SettingsPage() {
           <div>
             <h1 className="text-4xl font-bold">Settings</h1>
             <p className="text-muted-foreground mt-2">
-              Customize your ZIEL-MAS experience
+              Customize your OneTapAI experience
             </p>
           </div>
           <div className="flex items-center gap-3">

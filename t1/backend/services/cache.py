@@ -207,6 +207,10 @@ class RedisService:
         """Delete value from cache"""
         await self.client.delete(cache_key)
 
+    async def delete(self, key: str):
+        """Generic delete method"""
+        await self.client.delete(key)
+
     # Pub/Sub Methods (for real-time updates)
 
     async def publish(self, channel: str, message: Any):

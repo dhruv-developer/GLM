@@ -495,6 +495,28 @@ async def get_task_status(
                 quick_summary = enhanced_task_formatter.format_quick_summary_enhanced(response_data)
                 response_data["quick_summary"] = quick_summary
                 
+                # Add prominent job links for easy access
+                if "tasks" in response_data and "results" in response_data["tasks"]:
+                    web_search_task = None
+                    for taskId, task_info in response_data["tasks"].items():
+                        if task_info.get("agent") == "web_search" and "output" in task_info:
+                            web_search_task = task_info
+                            break
+                    
+                    if web_search_task and "results" in web_search_task["output"]:
+                        job_links = []
+                        for result in web_search_task["output"]["results"]:
+                            if result.get("application_url") or result.get("url"):
+                                job_links.append({
+                                    "title": result.get("title", "No title"),
+                                    "company": result.get("company", "Unknown"),
+                                    "application_url": result.get("application_url") or result.get("url", ""),
+                                    "direct_link": result.get("application_url") or result.get("url", "")
+                                })
+                        
+                        if job_links:
+                            response_data["job_links"] = job_links
+                
         except Exception as e:
             logger.error(f"Failed to format enhanced user summary: {e}")
             response_data["user_summary"] = "Enhanced summary formatting unavailable"
@@ -638,6 +660,169 @@ async def get_user_tasks(
 
     except Exception as e:
         logger.error(f"Failed to get user tasks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Delete task endpoint
+@app.delete("/api/v1/task/{execution_id}")
+async def delete_task(
+    execution_id: str,
+    user_id: Optional[str] = None,
+    db: DatabaseService = Depends(get_database),
+    redis: RedisService = Depends(get_redis)
+):
+    """Delete a specific task and its associated data"""
+    try:
+        logger.info(f"Deleting task {execution_id} for user {user_id}")
+        
+        # Check if task exists and belongs to user (if user_id provided)
+        task = await db.get_task(execution_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        # If user_id is provided, verify ownership
+        if user_id and task.get("user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+        
+        # Delete from database
+        deleted_from_db = await db.delete_task(execution_id)
+        
+        # Delete from Redis cache
+        deleted_from_redis = await redis.delete(f"execution:{execution_id}")
+        deleted_status = await redis.delete(f"status:{execution_id}")
+        
+        logger.info(f"Task {execution_id} deleted successfully")
+        
+        return {
+            "message": "Task deleted successfully",
+            "execution_id": execution_id,
+            "deleted_from_database": deleted_from_db,
+            "deleted_from_cache": deleted_from_redis or deleted_status
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete task {execution_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Delete recent tasks endpoint
+@app.delete("/api/v1/user/{user_id}/tasks/recent")
+async def delete_recent_tasks(
+    user_id: str,
+    limit: int = 10,
+    db: DatabaseService = Depends(get_database),
+    redis: RedisService = Depends(get_redis)
+):
+    """Delete recent tasks for a user (default last 10 tasks)"""
+    try:
+        logger.info(f"Deleting recent {limit} tasks for user {user_id}")
+        
+        # Get recent tasks for user
+        recent_tasks = await db.list_user_tasks(user_id, limit=limit, skip=0)
+        
+        if not recent_tasks:
+            return {
+                "message": "No recent tasks found to delete",
+                "user_id": user_id,
+                "deleted_count": 0
+            }
+        
+        deleted_count = 0
+        failed_deletions = []
+        
+        for task in recent_tasks:
+            execution_id = task.get("execution_id")
+            if execution_id:
+                try:
+                    # Delete from database
+                    await db.delete_task(execution_id)
+                    
+                    # Delete from Redis cache
+                    await redis.delete(f"execution:{execution_id}")
+                    await redis.delete(f"status:{execution_id}")
+                    
+                    deleted_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to delete task {execution_id}: {e}")
+                    failed_deletions.append(execution_id)
+        
+        logger.info(f"Deleted {deleted_count} recent tasks for user {user_id}")
+        
+        return {
+            "message": f"Successfully deleted {deleted_count} recent tasks",
+            "user_id": user_id,
+            "deleted_count": deleted_count,
+            "requested_limit": limit,
+            "failed_deletions": failed_deletions if failed_deletions else None
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to delete recent tasks for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Clear all tasks endpoint
+@app.delete("/api/v1/user/{user_id}/tasks/all")
+async def clear_all_tasks(
+    user_id: str,
+    confirm: bool = False,
+    db: DatabaseService = Depends(get_database),
+    redis: RedisService = Depends(get_redis)
+):
+    """Clear all tasks for a user (requires confirmation)"""
+    try:
+        if not confirm:
+            raise HTTPException(
+                status_code=400, 
+                detail="Confirmation required. Set confirm=true to delete all tasks"
+            )
+        
+        logger.info(f"Clearing ALL tasks for user {user_id}")
+        
+        # Get all tasks for user
+        all_tasks = await db.list_user_tasks(user_id, limit=1000, skip=0)
+        
+        if not all_tasks:
+            return {
+                "message": "No tasks found to clear",
+                "user_id": user_id,
+                "deleted_count": 0
+            }
+        
+        deleted_count = 0
+        failed_deletions = []
+        
+        for task in all_tasks:
+            execution_id = task.get("execution_id")
+            if execution_id:
+                try:
+                    # Delete from database
+                    await db.delete_task(execution_id)
+                    
+                    # Delete from Redis cache
+                    await redis.delete(f"execution:{execution_id}")
+                    await redis.delete(f"status:{execution_id}")
+                    
+                    deleted_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to delete task {execution_id}: {e}")
+                    failed_deletions.append(execution_id)
+        
+        logger.info(f"Cleared all {deleted_count} tasks for user {user_id}")
+        
+        return {
+            "message": f"Successfully cleared all {deleted_count} tasks",
+            "user_id": user_id,
+            "deleted_count": deleted_count,
+            "failed_deletions": failed_deletions if failed_deletions else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to clear all tasks for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

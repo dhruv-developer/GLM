@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Frontend Testing Script for ZIEL-MAS
+Frontend Testing Script for OneTapAI
 Automated checks for frontend functionality
 """
 
@@ -221,7 +221,7 @@ class FrontendTester:
     
     def run_all_tests(self):
         """Run all frontend tests"""
-        print("🧪 ZIEL-MAS Frontend Test Suite")
+        print("🧪 OneTapAI Frontend Test Suite")
         print("=" * 50)
         print(f"Frontend URL: {self.frontend_url}")
         print(f"Backend URL: {self.backend_url}")
@@ -292,7 +292,7 @@ def main():
     """Main function"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Test ZIEL-MAS frontend")
+    parser = argparse.ArgumentParser(description="Test OneTapAI frontend")
     parser.add_argument("--frontend", default="http://localhost:3000", help="Frontend URL")
     parser.add_argument("--backend", default="http://localhost:8000", help="Backend URL")
     

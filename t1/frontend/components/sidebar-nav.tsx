@@ -50,7 +50,7 @@ export function SidebarNav() {
               <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">ZIEL-MAS</h1>
+              <h1 className="text-xl font-bold">OneTapAI</h1>
               <p className="text-xs text-muted-foreground">Zero-Interaction Execution</p>
             </div>
           </div>

@@ -73,6 +73,63 @@ export async function cancelTask(executionId: string) {
   return response.json();
 }
 
+export async function deleteTask(executionId: string, userId?: string) {
+  const params = new URLSearchParams();
+  if (userId) params.append("user_id", userId);
+
+  const response = await fetch(
+    `${API_BASE}/api/v1/task/${executionId}?${params}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to delete task");
+  }
+
+  return response.json();
+}
+
+export async function deleteRecentTasks(userId?: string, limit = 10) {
+  const params = new URLSearchParams();
+  params.append("limit", limit.toString());
+
+  const response = await fetch(
+    `${API_BASE}/api/v1/user/${userId || process.env.NEXT_PUBLIC_DEFAULT_USER_ID || "default_user_001"}/tasks/recent?${params}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to delete recent tasks");
+  }
+
+  return response.json();
+}
+
+export async function clearAllTasks(userId?: string) {
+  const params = new URLSearchParams();
+  params.append("confirm", "true");
+
+  const response = await fetch(
+    `${API_BASE}/api/v1/user/${userId || process.env.NEXT_PUBLIC_DEFAULT_USER_ID || "default_user_001"}/tasks/all?${params}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to clear all tasks");
+  }
+
+  return response.json();
+}
+
 export async function getUserTasks(userId?: string, status?: string, limit = 50) {
   const params = new URLSearchParams();
   params.append("limit", limit.toString());

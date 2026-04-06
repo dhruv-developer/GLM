@@ -1,6 +1,6 @@
-# ZIEL-MAS Frontend
+# OneTapAI Frontend
 
-Modern Next.js frontend for the ZIEL-MAS (Zero-Interaction Execution Links with Multi-Agent System) application.
+Modern Next.js frontend for the OneTapAI (Zero-Interaction Execution Links with Multi-Agent System) application.
 
 ## Tech Stack
 
@@ -368,4 +368,4 @@ NEXT_PUBLIC_DEFAULT_USER_ID=default_user_001
 
 ## License
 
-This project is part of the ZIEL-MAS system. See main LICENSE file for details.
+This project is part of the OneTapAI system. See main LICENSE file for details.

@@ -164,6 +164,34 @@ class DatabaseService:
             logger.error(f"Failed to delete task execution {execution_id}: {e}")
             return False
 
+    async def delete_task(self, execution_id: str) -> bool:
+        """Delete a task completely (hard delete)"""
+        try:
+            # Delete task execution
+            task_result = await self.db.task_executions.delete_one({"execution_id": execution_id})
+            
+            # Delete associated logs
+            logs_result = await self.db.execution_logs.delete_many({"execution_id": execution_id})
+            
+            logger.info(f"Deleted task {execution_id}: {task_result.deleted_count} task, {logs_result.deleted_count} logs")
+            return task_result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to delete task {execution_id}: {e}")
+            return False
+
+    async def get_task(self, execution_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific task by execution_id"""
+        try:
+            task = await self.db.task_executions.find_one({"execution_id": execution_id})
+            if task:
+                # Convert ObjectId to string
+                task["_id"] = str(task["_id"])
+                return task
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get task {execution_id}: {e}")
+            return None
+
     # Execution Log Methods
 
     async def create_execution_log(self, log_data: Dict[str, Any]) -> str:
