@@ -15,6 +15,7 @@ export async function createTask(request: CreateTaskRequest): Promise<CreateTask
   });
 
   if (!response.ok) {
+    console.log(response)
     const error = await response.json();
     throw new Error(error.detail || "Failed to create task");
   }

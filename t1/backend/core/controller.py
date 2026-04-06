@@ -697,9 +697,9 @@ Only return valid JSON, no explanations."""
             parameters={
                 "query": intent["original_intent"],  # Will be replaced with cleaned query during execution
                 "num_results": 10
-            }
+            },
+            dependencies=[parse_task.task_id]  # Depends on parse task
         )
-        search_task.add_dependency(parse_task.task_id)  # Depends on parse task
         graph.add_node(search_task)
 
         # Task 3: Generate document/summary from results
